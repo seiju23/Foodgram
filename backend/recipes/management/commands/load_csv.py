@@ -16,8 +16,7 @@ class Command(BaseCommand):
         next(reader, None)
         for row in reader:
             obj, created = Ingredient.objects.get_or_create(
-                id=row[0],
-                name=row[1],
-                measurement_unit=row[2]
+                name=row[0],
+                measurement_unit=row[1]
             )
         self.stdout.write(self.style.SUCCESS('Загрузка прошла успешно.'))

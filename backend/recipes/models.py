@@ -1,9 +1,7 @@
-from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
 from django.db import models
 
-
-User = get_user_model()
+from users.models import User
 
 
 class Tag(models.Model):
@@ -66,6 +64,9 @@ class Recipe(models.Model):
         verbose_name = 'Рецепт'
         verbose_name_plural = 'Рецепты'
 
+    def get_tags(self):
+        return ",".join([str(p) for p in self.tags.all()])
+
     def __str__(self):
         return self.name
 
@@ -88,7 +89,7 @@ class IngredientAmount(models.Model):
         validators=[MinValueValidator(1)])
 
     class Meta:
-        verbose_name_plural = 'Ингредиенты'
+        verbose_name_plural = 'Количество ингредиентов'
 
     def __str__(self):
         f'Для рецепта необходимо {self.amount} {self.ingredient}'
@@ -130,6 +131,7 @@ class ShoppingCart(models.Model):
 
     class Meta:
         verbose_name = 'Список покупок'
+        verbose_name_plural = 'Список покупок'
 
     def __str__(self):
         return f'{self.user} добавил в список покупок {self.recipe}'
