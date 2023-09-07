@@ -53,7 +53,7 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USER }}
           key: ${{ secrets.SSH_KEY }}
-          passphrase: ${{ secrets.PASSPHRASE }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           script: |
             sudo docker pull seiju23/foodgram_backend:latest
             sudo docker-compose stop
