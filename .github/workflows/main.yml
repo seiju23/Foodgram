@@ -55,7 +55,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           passphrase: ${{ secrets.PASSPHRASE }}
           script: |
-            sudo docker pull andyplo/foodgram_backend:latest
+            sudo docker pull seiju23/foodgram_backend:latest
             sudo docker-compose stop
             sudo docker-compose rm -f backend
             rm .env
