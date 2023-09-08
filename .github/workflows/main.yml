@@ -55,6 +55,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           script: |
+            cd foodgram-project-react/infra
             sudo docker compose stop
             sudo docker compose rm -f backend
             rm .env
