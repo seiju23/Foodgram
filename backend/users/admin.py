@@ -14,8 +14,8 @@ class UserAdmin(admin.ModelAdmin):
 
 
 class FollowAdmin(admin.ModelAdmin):
-    list_display = ('pk', 'user', 'following')
-    list_editable = ('user', 'following')
+    list_display = ('pk', 'user', 'author')
+    list_editable = ('user', 'author')
     empty_value_display = '???'
 
 

@@ -15,66 +15,61 @@ from .validators import validate_username, validate_email
 from users.models import User, Follow
 
 
-class SignupSerializer(serializers.Serializer):
-    """Сериализатор регистрации."""
-    username = serializers.CharField(
-        validators=[
-            validate_username,
-        ],
-        max_length=150,
-    )
-    email = serializers.EmailField(
-        validators=[
-            validate_email,
-        ],
-        max_length=254,
-    )
-
-    def create(self, validated_data):
-        """Создание пользователя."""
-        if User.objects.filter(**validated_data).exists():
-            return validated_data
-        return User.objects.create(**validated_data)
-
-
-class TokenSerializer(serializers.Serializer):
-    """Сериализатор для токенов."""
-    username = serializers.CharField(
-        validators=[
-            UniqueValidator(queryset=User.objects.all())
-        ],
-        max_length=150,
-    )
-    confirmation_code = serializers.CharField()
-
-
 class UserSerializer(serializers.ModelSerializer):
     """Сериализатор пользователя."""
     username = serializers.CharField(
         validators=[
-            UniqueValidator(queryset=User.objects.all())
+            UniqueValidator(queryset=User.objects.all()),
+            validate_username
         ],
         required=True,
         max_length=150,
     )
     email = serializers.EmailField(
         validators=[
-            UniqueValidator(queryset=User.objects.all())
+            UniqueValidator(queryset=User.objects.all()),
+            validate_email
         ]
     )
+    is_subscribed = serializers.SerializerMethodField()
 
-    class Meta:
-        fields = ('username', 'email', 'first_name',
-                  'last_name', 'id', 'password')
-        model = User
-
-    def get_is_following(self, obj):
+    def get_is_subscribed(self, obj):
         if (self.context.get('request')
            and not self.context['request'].user.is_anonymous):
             return Follow.objects.filter(
                 user=self.context['request'].user,
                 author=obj).exists()
         return False
+
+    def validate(self, data):
+        user = User(**data)
+        password = data.get('password')
+        try:
+            validate_password(password=password, user=user)
+        except exceptions.ValidationError as e:
+            raise serializers.ValidationError(e.messages)
+        return super(UserSerializer, self).validate(data)
+
+    def create(self, validated_data):
+        user = User(
+            email=validated_data['email'],
+            username=validated_data['username'],
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
+        )
+        user.set_password(validated_data['password'])
+        user.save()
+        return user
+
+    class Meta:
+        fields = (
+            'id', 'email', 'username',
+            'first_name', 'last_name',
+            'password', 'is_subscribed'
+        )
+        model = User
+        extra_kwargs = {'password': {'write_only': True}}
+        read_only_fields = ('is_subscribed',)
 
 
 class SetPasswordSerializer(serializers.Serializer):
@@ -142,7 +137,7 @@ class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
         fields = '__all__'
-        read_only_fields = '__all__'
+        read_only_fields = ('id', 'name', 'color', 'slug',)
 
 
 class RecipeWriteSerializer(serializers.ModelSerializer):
@@ -151,7 +146,7 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         slug_field='username',
         read_only=True
     )
-    ingredients = IngredientSerializer(many=True)
+    ingredients = IngredientAmountSerializer(many=True)
     tags = TagSerializer(many=True, read_only=True)
     image = Base64ImageField(required=False, allow_null=True)
     is_favorited = serializers.SerializerMethodField()
@@ -160,7 +155,7 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
     class Meta:
         fields = (
             'id', 'author', 'ingredients',
-            'name', 'text', 'cooking_time'
+            'name', 'text', 'cooking_time',
             'tags', 'image', 'is_favorited',
             'is_in_shopping_cart'
         )
@@ -188,19 +183,38 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
                 recipe=obj).exists()
         )
 
+    def validate(self, data):
+        tags_ids = self.initial_data.get('tags')
+        ingredients = self.initial_data.get('ingredients')
+        fields = ['name', 'text', 'cooking_time']
+
+        if not tags_ids or not ingredients:
+            raise serializers.ValidationError('Не переданы нужные данные.')
+        tags = Tag.objects.filter(id__in=tags_ids)
+        for field in fields:
+            if not data.get(field):
+                raise serializers.ValidationError(
+                    'Поля должны быть заполнены.')
+        data.update(
+            {
+                "tags": tags,
+                "ingredients": ingredients,
+                "author": self.context.get("request").user,
+            }
+        )
+        return data
+
     def create(self, validated_data):
         ingredients = validated_data.pop('ingredients')
         tags = validated_data.pop('tags')
-        recipe = Recipe.objects.create(
-            author=self.context['request'].user,
-            **validated_data)
-        for tag in tags:
-            Tag.objects.create(tag=tag, recipe=recipe)
+        recipe = Recipe.objects.create(**validated_data)
+        recipe.tags.set(tags)
         for ingredient in ingredients:
-            IngredientAmount.create(
-                recipe=self.instance,
+            IngredientAmount.objects.create(
+                recipe=recipe,
+                ingredient=Ingredient.objects.get(pk=ingredient['id']),
                 amount=ingredient['amount'],
-                ingredient=ingredient['id'])
+            )
         return recipe
 
     def update(self, instance, validated_data):
@@ -219,10 +233,11 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             author=self.context['request'].user,
             **validated_data)
         for ingredient in ingredients:
-            IngredientAmount.create(
+            IngredientAmount.objects.create(
                 recipe=self.instance,
+                ingredient=Ingredient.objects.get(pk=ingredient['id']),
                 amount=ingredient['amount'],
-                ingredient=ingredient['id'])
+            )
         for tag in tags:
             Tag.objects.create(tag=tag, recipe=recipe)
         instance.save()
@@ -239,9 +254,11 @@ class RecipeReadSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Recipe
-        fields = ('id', 'author', 'name', 'image', 'text', 'ingredients',
-                  'tags', 'cooking_time', 'is_favorited',
-                  'is_in_shopping_cart')
+        fields = (
+            'id', 'author', 'name', 'image', 'text', 'ingredients',
+            'tags', 'cooking_time', 'is_favorited',
+            'is_in_shopping_cart'
+        )
 
 
 class FollowSerializer(serializers.ModelSerializer):
@@ -251,7 +268,7 @@ class FollowSerializer(serializers.ModelSerializer):
         slug_field='username',
         default=serializers.CurrentUserDefault()
     )
-    following = serializers.SlugRelatedField(
+    author = serializers.SlugRelatedField(
         slug_field='username',
         queryset=User.objects.all()
     )
@@ -261,13 +278,13 @@ class FollowSerializer(serializers.ModelSerializer):
         model = Follow
         validators = [UniqueTogetherValidator(
             queryset=Follow.objects.all(), fields=(
-                'user', 'following'),
+                'user', 'author'),
             message='Вы уже подписаны на этого автора.'
         )]
 
-    def validate_following(self, following):
-        if self.context.get('request').user != following:
-            return following
+    def validate_author(self, author):
+        if self.context.get('request').user != author:
+            return author
         raise serializers.ValidationError(
             'Вы не можете подписаться на себя.'
         )
