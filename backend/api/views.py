@@ -21,7 +21,7 @@ from recipes.models import (
     Recipe, Ingredient, Favorite,
     ShoppingCart, Tag, IngredientAmount)
 from .serializers import (
-    UserSerializer,
+    UserSerializer, FavoriteSerializer, ShoppingCartSerializer,
     SetPasswordSerializer, IngredientSerializer, TagSerializer,
     RecipeReadSerializer, RecipeWriteSerializer,
     FollowSerializer)
@@ -140,6 +140,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthorOrReadOnly,)
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
+    http_method_names = ['get', 'post', 'patch', 'delete']
 
     def get_serializer_class(self):
         if self.action == 'list' or self.action == 'retrieve':
@@ -151,11 +152,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post', 'delete'],
             permission_classes=(IsAuthenticated,))
-    def favorite(self, request, **kwargs):
-        recipe = get_object_or_404(Recipe, id=kwargs['pk'])
-
+    def favorite(self, request, pk):
+        recipe = get_object_or_404(Recipe, id=pk)
         if request.method == 'POST':
-            serializer = RecipeWriteSerializer(
+            serializer = FavoriteSerializer(
                 recipe, data=request.data,
                 context={"request": request})
             serializer.is_valid(raise_exception=True)
@@ -181,11 +181,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post', 'delete'],
             permission_classes=(IsAuthenticated,),
             pagination_class=None)
-    def shopping_cart(self, request, **kwargs):
-        recipe = get_object_or_404(Recipe, id=kwargs['pk'])
-
+    def shopping_cart(self, request, pk):
+        recipe = get_object_or_404(Recipe, id=pk)
         if request.method == 'POST':
-            serializer = RecipeWriteSerializer(
+            serializer = ShoppingCartSerializer(
                 recipe, data=request.data,
                 context={"request": request})
             serializer.is_valid(raise_exception=True)

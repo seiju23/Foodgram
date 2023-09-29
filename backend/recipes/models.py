@@ -52,6 +52,7 @@ class Recipe(models.Model):
     ingredients = models.ManyToManyField(
         Ingredient,
         through='IngredientAmount',
+        through_fields=('recipe', 'ingredient'),
     )
     image = models.ImageField(
         upload_to='recipes/', null=True, blank=True)
@@ -76,13 +77,13 @@ class IngredientAmount(models.Model):
     recipe = models.ForeignKey(
         Recipe,
         on_delete=models.CASCADE,
-        related_name='recipes',
+        related_name='recipeingredients',
         verbose_name='Рецепт'
     )
     ingredient = models.ForeignKey(
         Ingredient,
         on_delete=models.CASCADE,
-        related_name='ingredients',
+        related_name='recipeingredients',
         verbose_name='Ингредиент'
     )
     amount = models.PositiveSmallIntegerField(
@@ -92,7 +93,7 @@ class IngredientAmount(models.Model):
         verbose_name_plural = 'Количество ингредиентов'
 
     def __str__(self):
-        f'Для рецепта необходимо {self.amount} {self.ingredient}'
+        return f'Для рецепта необходимо {self.amount} {self.ingredient.name}'
 
 
 class Favorite(models.Model):
@@ -113,7 +114,7 @@ class Favorite(models.Model):
         verbose_name_plural = "Избранные рецепты"
 
     def __str__(self):
-        return f'{self.user} добавил в избранное рецепт {self.recipe}'
+        return f'{self.user.username} добавил в избранное {self.recipe.name}'
 
 
 class ShoppingCart(models.Model):
@@ -134,4 +135,4 @@ class ShoppingCart(models.Model):
         verbose_name_plural = 'Список покупок'
 
     def __str__(self):
-        return f'{self.user} добавил в список покупок {self.recipe}'
+        return f'{self.user.username} добавил в корзину {self.recipe.name}'
