@@ -52,10 +52,9 @@ class Recipe(models.Model):
     ingredients = models.ManyToManyField(
         Ingredient,
         through='IngredientAmount',
-        through_fields=('recipe', 'ingredient'),
     )
     image = models.ImageField(
-        upload_to='recipes/', null=True, blank=True)
+        upload_to='recipes/', null=False, blank=False)
     tags = models.ManyToManyField(Tag, blank=True)
     is_favorited = models.BooleanField(default=False)
     is_in_shopping_cart = models.BooleanField(default=False)

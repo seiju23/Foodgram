@@ -87,7 +87,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': [
         'api.pagination.MyPaginator',
     ],
-    'PAGE_SIZE': 10,
+    'PAGE_SIZE': 6,
     'SEARCH_PARAM': 'name',
 }
 
@@ -99,9 +99,8 @@ DJOSER = {
         'user': ['rest_framework.permissions.IsAuthenticatedOrReadOnly'],
     },
     'SERIALIZERS': {
-        'user': 'api.serializers.UserSerializer',
-        'user_list': 'api.serializers.UserSerializer',
-        'current_user': 'api.serializers.UserSerializer',
+        'user': 'api.serializers.UserReadSerializer',
+        'current_user': 'api.serializers.UserReadSerializer',
         'user_create': 'api.serializers.UserSerializer',
     },
 }

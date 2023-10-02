@@ -13,6 +13,9 @@ router.register(
     r'ingredients', views.IngredientViewSet, basename='ingredients')
 
 urlpatterns = [
+    path('users/subscriptions/',
+         views.FollowListViewSet.as_view({'get': 'list'})),
+    path('users/<int:user_id>/subscribe/', views.FollowViewSet.as_view()),
     path('', include(router.urls)),
     path(r'auth/', include('djoser.urls.authtoken')),
 ]
