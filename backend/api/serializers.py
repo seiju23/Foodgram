@@ -12,6 +12,7 @@ from rest_framework.validators import UniqueValidator, UniqueTogetherValidator
 from recipes.models import (
     Recipe, Ingredient, Tag, IngredientAmount,
     Favorite, ShoppingCart)
+from .utils import validate_tags_ingredients
 from .validators import validate_username, validate_email
 from users.models import User, Follow
 
@@ -261,36 +262,14 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
     def validate(self, data):
         tags = self.initial_data.get('tags')
         ingredients = self.initial_data.get('ingredients')
-        ingredients_list = []
-        tags_list = []
         fields = ['name', 'text', 'cooking_time']
-        if not tags or not ingredients:
-            raise serializers.ValidationError('Не переданы нужные данные.')
         for field in fields:
             if not data.get(field):
                 raise serializers.ValidationError(
                     'Поля должны быть заполнены.')
-        for ingredient in ingredients:
-            if ingredient.get('amount') <= 0:
-                raise serializers.ValidationError(
-                    'Количество не может быть меньше 1'
-                )
-            if not Ingredient.objects.filter(id=ingredient.get('id')).exists():
-                raise serializers.ValidationError(
-                    'Вы пытаетесь добавить несуществующий ингредиент.')
-            ingredients_list.append(ingredient.get('id'))
-        for tag_id in tags:
-            if not Tag.objects.filter(id=tag_id).exists():
-                raise serializers.ValidationError(
-                    'Вы пытаетесь добавить несуществующий тег.'
-                )
-            tags_list.append(tag_id)
-        if len(tags_list) != len(set(tags_list)):
-            raise serializers.ValidationError(
-                'Теги должны быть уникальны.')
-        if len(ingredients_list) != len(set(ingredients_list)):
-            raise serializers.ValidationError(
-                'Ингредиенты должны быть уникальны.')
+        if not tags or not ingredients:
+            raise serializers.ValidationError('Не переданы нужные данные.')
+        validate_tags_ingredients(tags, ingredients)
         data.update(
             {
                 'tags': tags,

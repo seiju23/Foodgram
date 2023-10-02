@@ -190,10 +190,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 recipe, error_message)
 
 
-@action(
-        detail=False,
+@action(detail=False,
         methods=['get'],
-        permission_classes=(IsAuthenticated, ))
+        permission_classes=(IsAuthenticated, )
+        )
 def download_shopping_cart(request):
     recipes = request.user.shopping_cart.all().values('recipe_id')
     ingredients = IngredientAmount.objects.filter(recipe__in=recipes)
