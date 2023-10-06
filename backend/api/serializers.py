@@ -196,21 +196,6 @@ class IngredientSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class IngredientAmountSerializer(serializers.ModelSerializer):
-    """Сериализатор для связующего класса ингредиентов и рецептов."""
-    id = serializers.ReadOnlyField(source='ingredient.id')
-    name = serializers.ReadOnlyField(source='ingredient.name')
-    measurement_unit = serializers.ReadOnlyField(
-        source='ingredient.measurement_unit')
-
-    class Meta:
-        model = IngredientAmount
-        fields = (
-            'id', 'name',
-            'measurement_unit',
-        )
-
-
 class IngredientAmountCreateSerializer(serializers.ModelSerializer):
     """Сериализатор для ингредиентов при создании рецепта."""
     id = serializers.IntegerField()
@@ -238,7 +223,6 @@ class RecipeShortSerializer(serializers.ModelSerializer):
 
 class RecipeWriteSerializer(serializers.ModelSerializer):
     """Сериализатор для записи рецептов."""
-    author = UserReadSerializer(read_only=True)
     ingredients = IngredientAmountCreateSerializer(many=True)
     tags = TagSerializer(many=True, read_only=True)
     image = Base64ImageField(required=True, allow_null=False)
@@ -253,7 +237,7 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
 
     class Meta:
         fields = (
-            'ingredients', 'author',
+            'ingredients',
             'name', 'text', 'cooking_time',
             'tags', 'image'
         )
@@ -330,7 +314,8 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
 
 class RecipeReadSerializer(serializers.ModelSerializer):
     """Сериализатор для чтения рецептов."""
-    ingredients = IngredientAmountSerializer(many=True)
+    author = UserReadSerializer(read_only=True)
+    ingredients = serializers.SerializerMethodField()
     tags = TagSerializer(many=True)
     is_favorited = serializers.SerializerMethodField()
     is_in_shopping_cart = serializers.SerializerMethodField()
@@ -345,7 +330,8 @@ class RecipeReadSerializer(serializers.ModelSerializer):
 
     def get_ingredients(self, recipe):
         ingredients = recipe.ingredients.values(
-            'id', 'name', 'measurement_unit', amount=F('recipe__amount')
+            'id', 'name',
+            'measurement_unit', amount=F('ingredientamount__amount')
         )
         return ingredients
 
@@ -379,10 +365,6 @@ class FavoriteSerializer(serializers.ModelSerializer):
             )
         ]
 
-    def validate(self, recipe):
-        if not Recipe.objects.filter(id=recipe['id']).exists():
-            raise serializers.ValidationError('Рецепт не существует')
-
     def to_representation(self, instance):
         request = self.context.get('request')
         return RecipeShortSerializer(
@@ -403,10 +385,6 @@ class ShoppingCartSerializer(serializers.ModelSerializer):
                 message='Рецепт уже в списке покупок'
             )
         ]
-
-    def validate(self, recipe):
-        if not Recipe.objects.filter(id=recipe['id']).exists():
-            raise serializers.ValidationError('Рецепт не существует')
 
     def to_representation(self, instance):
         request = self.context.get('request')
