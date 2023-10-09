@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.contrib.auth.models import Group
+from rest_framework.authtoken.models import TokenProxy
 
 from . import models
 
@@ -8,11 +10,20 @@ class IngredientAmountAdmin(admin.ModelAdmin):
     list_editable = ('recipe', 'ingredient', 'amount')
 
 
+class RecipeTagInline(admin.TabularInline):
+    model = models.Recipe.tags.through
+    min_num = 1
+
+
+class RecipeIngredientInline(admin.TabularInline):
+    model = models.Recipe.ingredients.through
+    min_num = 1
+
+
 class RecipeAdmin(admin.ModelAdmin):
     list_display = (
-        'pk', 'name', 'author',
-        'is_favorited', 'cooking_time',
-        'text', 'get_tags', 'image')
+        'pk', 'name', 'author', 'cooking_time',
+        'text', 'get_tags', 'get_ingredients', 'image')
     list_editable = (
         'name', 'cooking_time', 'text',
         'image', 'author'
@@ -20,10 +31,22 @@ class RecipeAdmin(admin.ModelAdmin):
     readonly_fields = ('is_favorited',)
     list_filter = ('name', 'author', 'tags')
     empty_value_display = '???'
+    inines = [
+        RecipeIngredientInline,
+        RecipeTagInline,
+    ]
 
     @admin.display(description='Избранное')
     def is_favorited(self, obj):
         return obj.favorite_recipes.count()
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        form.base_fields[
+            'is_favorited'].widget = admin.widgets.AdminHiddenInput()
+        form.base_fields[
+            'is_in_shopping_cart'].widget = admin.widgets.AdminHiddenInput()
+        return form
 
 
 class ShoppingCartAdmin(admin.ModelAdmin):
@@ -54,3 +77,5 @@ admin.site.register(models.Tag, TagAdmin)
 admin.site.register(models.Favorite, FavoriteAdmin)
 admin.site.register(models.ShoppingCart, ShoppingCartAdmin)
 admin.site.register(models.IngredientAmount, IngredientAmountAdmin)
+admin.site.unregister(Group)
+admin.site.unregister(TokenProxy)
