@@ -2,6 +2,7 @@ from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.db import models
 
+from . import constants
 from api.validators import validate_username
 
 
@@ -9,15 +10,25 @@ class User(AbstractUser):
     """Кастомный класс юзера."""
     email = models.EmailField(unique=True)
     username = models.CharField(
-        max_length=150,
+        max_length=constants.MAX_LENGTH_USERNAME,
         unique=True,
-        validators=[validate_username, ]
+        validators=[
+            UnicodeUsernameValidator(),
+            validate_username,
+        ]
     )
-    first_name = models.CharField(max_length=150)
-    last_name = models.CharField(max_length=150)
+    first_name = models.CharField(
+        max_length=constants.MAX_LENGTH_FIRST_NAME
+    )
+    last_name = models.CharField(
+        max_length=constants.MAX_LENGTH_LAST_NAME
+    )
+    password = models.CharField(
+        verbose_name='Пароль',
+        max_length=constants.MAX_LENGTH_PASSWORD,
+    )
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
-    username_validator = UnicodeUsernameValidator()
 
     class Meta:
         ordering = ['username']

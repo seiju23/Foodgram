@@ -1,6 +1,7 @@
 import base64
 
 from django.db import transaction
+from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db.models import F
@@ -13,17 +14,28 @@ from recipes.models import (
     Recipe, Ingredient, Tag, IngredientAmount,
     Favorite, ShoppingCart)
 from .utils import validate_tags_ingredients
-from users.models import User, Follow
+from users.constants import MAX_LENGTH_PASSWORD
+from users.models import Follow
+
+
+User = get_user_model()
 
 
 class UserSignUpSerializer(UserCreateSerializer):
     """Сериализатор для регистрации пользователей."""
     class Meta:
         model = User
-        fields = tuple(User.REQUIRED_FIELDS) + (
-            User.USERNAME_FIELD,
-            'password',
+        fields = (
+            'email', 'id', 'username', 'first_name',
+            'last_name', 'password'
         )
+
+    def validate_password(self, password):
+        if len(password) > MAX_LENGTH_PASSWORD:
+            raise serializers.ValidationError(
+                f'Длина пароля не должна превышать {MAX_LENGTH_PASSWORD}'
+            )
+        return password
 
 
 class UserReadSerializer(UserSerializer):
@@ -49,7 +61,6 @@ class FollowListSerializer(UserReadSerializer):
     """"Сериализатор для предоставления информации
     о подписках пользователя.
     """
-    is_subscribed = UserReadSerializer()
     recipes = serializers.SerializerMethodField()
     recipes_count = serializers.SerializerMethodField()
 
@@ -198,19 +209,23 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         )
         return data
 
+    def create_ingredients(self, recipe, ingredients_data):
+        IngredientAmount.objects.bulk_create(
+            IngredientAmount(
+                recipe=recipe,
+                ingredient=Ingredient.objects.get(
+                    id=ingredient_data.get('id')),
+                amount=ingredient_data['amount']
+            )
+            for ingredient_data in ingredients_data
+        )
+
     @transaction.atomic
     def create(self, validated_data):
         ingredients_data = validated_data.pop('ingredients')
         tags = validated_data.pop('tags')
         recipe = Recipe.objects.create(**validated_data)
-        for ingredient_data in ingredients_data:
-            ingredient = Ingredient.objects.get(
-                id=ingredient_data.get('id'))
-            IngredientAmount.objects.create(
-                recipe=recipe,
-                ingredient=ingredient,
-                amount=ingredient_data.get('amount'),
-            )
+        self.create_ingredients(recipe, ingredients_data)
         recipe.tags.set(tags)
         return recipe
 
@@ -224,17 +239,10 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         instance.cooking_time = validated_data.get(
             "cooking_time", instance.cooking_time)
         IngredientAmount.objects.filter(
-            recipe=instance).clear()
+            recipe=instance).delete()
         instance.tags.clear()
         instance.tags.set(tags)
-        for ingredient_data in ingredients_data:
-            ingredient = Ingredient.objects.get(
-                id=ingredient_data.get('id'))
-            IngredientAmount.objects.create(
-                recipe=instance,
-                ingredient=ingredient,
-                amount=ingredient_data.get('amount'),
-            )
+        self.create_ingredients(instance, ingredients_data)
         return super().update(instance, validated_data)
 
     def to_representation(self, instance):

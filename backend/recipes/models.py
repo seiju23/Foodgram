@@ -9,10 +9,10 @@ from users.models import User
 class Tag(models.Model):
     """Класс тегов."""
     name = models.CharField(
-        'Тег', max_length=constants.tags_name_max_length,
+        'Тег', max_length=constants.MAX_LENGTH_TAG_NAME,
         blank=False, unique=True)
     slug = models.SlugField(
-        'Slug', max_length=constants.tags_slug_max_length,
+        'Slug', max_length=constants.MAX_LENGTH_TAG_SLUG,
         blank=False, unique=True)
     color = ColorField(format="hexa")
 
@@ -27,9 +27,9 @@ class Tag(models.Model):
 
 class Ingredient(models.Model):
     """Класс ингредиентов."""
-    name = models.CharField(max_length=constants.ingredient_name_max_length)
+    name = models.CharField(max_length=constants.MAX_LENGTH_INGREDIENT_NAME)
     measurement_unit = models.CharField(
-        max_length=constants.ingredient_measurement_unit_max_length)
+        max_length=constants.MAX_LENGTH_INGREDIENT_UNIT)
 
     class Meta:
         ordering = ['name']
@@ -42,7 +42,7 @@ class Ingredient(models.Model):
 
 class Recipe(models.Model):
     """Класс рецептов."""
-    name = models.CharField(max_length=200)
+    name = models.CharField(max_length=constants.MAX_LENGTH_RECIPE_NAME)
     text = models.TextField()
     author = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='recipes')

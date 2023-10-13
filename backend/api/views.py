@@ -1,20 +1,18 @@
+from django.contrib.auth import get_user_model
 from django.db.models import Sum
 from django_filters.rest_framework import DjangoFilterBackend
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from djoser.views import UserViewSet as DjoserViewSet
+from djoser import views
 
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound
 from rest_framework.filters import SearchFilter
-from rest_framework.mixins import (
-    RetrieveModelMixin,
-    ListModelMixin
-)
 from rest_framework.permissions import (
     AllowAny,
     IsAuthenticated,
-    IsAuthenticatedOrReadOnly)
+    IsAuthenticatedOrReadOnly,)
 from rest_framework.response import Response
 
 from .filters import RecipeFilter
@@ -28,25 +26,28 @@ from .serializers import (
     IngredientSerializer, TagSerializer,
     RecipeReadSerializer, RecipeWriteSerializer,
     FollowSerializer, FollowListSerializer)
-from users.models import User, Follow
+from users.models import Follow
 
 
-class UserViewSet(DjoserViewSet):
+User = get_user_model()
+
+
+class UserViewSet(views.UserViewSet):
     """Получение пользователей."""
     queryset = User.objects.all()
     filter_backends = (SearchFilter,)
     search_fields = ('username',)
-    permission_classes = (IsAuthenticatedOrReadOnly,)
     pagination_class = LimitPaginator
+    permission_classes = (IsAuthenticatedOrReadOnly,)
 
     @action(
         detail=True,
         methods=['post', 'delete'],
         permission_classes=(IsAuthenticated,)
     )
-    def subscribe(self, request, pk):
+    def subscribe(self, request, id):
         if request.method == 'POST':
-            author = get_object_or_404(User, id=pk)
+            author = get_object_or_404(User, id=id)
             serializer = FollowSerializer(
                 data={'user': request.user.id, 'author': author.id},
                 context={'request': request}
@@ -56,20 +57,17 @@ class UserViewSet(DjoserViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         if request.method == 'DELETE':
-            if request.user.is_authenticated:
-                author = get_object_or_404(User, id=pk)
-                if not Follow.objects.filter(
-                    user=request.user, author=author
-                ).exists():
-                    return Response(
-                        {'errors': 'Вы не подписаны на этого пользователя'},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-                Follow.objects.get(
-                    user=request.user.id,
-                    author=pk).delete()
-                return Response(status=status.HTTP_204_NO_CONTENT)
-            return Response(status=status.HTTP_401_UNAUTHORIZED)
+            author = get_object_or_404(User, id=id)
+            delete_nums, _ = Follow.objects.filter(
+                user=request.user, author=author
+            ).delete()
+            if not delete_nums:
+                return Response(
+                    {'errors': 'Вы не подписаны на этого пользователя'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_401_UNAUTHORIZED)
 
     @action(
         detail=False,
@@ -90,9 +88,7 @@ class UserViewSet(DjoserViewSet):
         return super(UserViewSet, self).get_permissions()
 
 
-class IngredientViewSet(ListModelMixin,
-                        RetrieveModelMixin,
-                        viewsets.GenericViewSet):
+class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Ingredient.objects.all()
     permission_classes = (AllowAny, )
     serializer_class = IngredientSerializer
@@ -101,9 +97,7 @@ class IngredientViewSet(ListModelMixin,
     search_fields = ('^name', )
 
 
-class TagViewSet(ListModelMixin,
-                 RetrieveModelMixin,
-                 viewsets.GenericViewSet):
+class TagViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = (AllowAny, )
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
@@ -138,73 +132,72 @@ class RecipeViewSet(viewsets.ModelViewSet):
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    @staticmethod
-    def delete_object_util(request, model_name, instance, error_message):
-        """Функция для создания объекта избранного или списка покупок."""
-        if not model_name.objects.filter(
-            user=request.user,
-            recipe=instance
-        ).exists():
-            return Response(
-                {'errors': error_message},
-                status=status.HTTP_400_BAD_REQUEST)
-        model_name.objects.filter(user=request.user, recipe=instance).delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
     @action(detail=True, methods=['post', 'delete'],
             permission_classes=(IsAuthenticated,))
     def favorite(self, request, pk):
-        recipe = get_object_or_404(Recipe, id=pk)
+        recipe_exists = Recipe.objects.filter(id=pk).exists()
         if request.method == 'POST':
+            if not recipe_exists:
+                return Response(
+                    {'error': 'Рецепт не существует.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            recipe = Recipe.objects.get(id=pk)
             return self.create_object_util(
-                request, recipe, FavoriteSerializer)
-
+                request, recipe,
+                FavoriteSerializer)
         if request.method == 'DELETE':
-            if Favorite.objects.filter(user=request.user,
-                                       recipe=recipe).exists():
-                error_message = 'Этого рецепта нет в избранном.'
-                return self.delete_object_util(
-                    request, Favorite,
-                    recipe, error_message)
-        return Response(status=status.HTTP_400_BAD_REQUEST)
+            try:
+                recipe = Recipe.objects.get(id=pk)
+                favorite = Favorite.objects.get(
+                    user=request.user, recipe=recipe)
+            except Recipe.DoesNotExist:
+                raise NotFound(
+                    {'error': 'Рецепт не существует.'}
+                )
+            except Favorite.DoesNotExist:
+                return Response(
+                    {'error': 'Этого рецепта нет в списке покупок.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            favorite.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     @action(detail=True, methods=['post', 'delete'],
             permission_classes=(IsAuthenticated,))
     def shopping_cart(self, request, pk):
-        recipe = get_object_or_404(Recipe, id=pk)
+        recipe_exists = Recipe.objects.filter(id=pk).exists()
         if request.method == 'POST':
+            if not recipe_exists:
+                return Response(
+                    {'error': 'Рецепт не существует.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            recipe = Recipe.objects.get(id=pk)
             return self.create_object_util(
                 request, recipe,
                 ShoppingCartSerializer)
-
         if request.method == 'DELETE':
-            if ShoppingCart.objects.filter(user=request.user,
-                                           recipe=recipe).exists():
-                error_message = 'Этого рецепта нет в списке покупок'
-                return self.delete_object_util(
-                    request, ShoppingCart,
-                    recipe, error_message)
-        return Response(status=status.HTTP_400_BAD_REQUEST)
+            try:
+                recipe = Recipe.objects.get(id=pk)
+                shopping_cart = ShoppingCart.objects.get(
+                    user=request.user, recipe=recipe)
+            except Recipe.DoesNotExist:
+                raise NotFound(
+                    {'error': 'Рецепт не существует.'}
+                )
+            except ShoppingCart.DoesNotExist:
+                return Response(
+                    {'error': 'Этого рецепта нет в списке покупок.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            shopping_cart.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
-    @action(detail=False,
-            methods=['get'],
-            permission_classes=(IsAuthenticated,)
-            )
-    def download_shopping_cart(self, request):
-        if not request.user.shopping_cart.exists():
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-        ingredients = IngredientAmount.objects.filter(
-            recipe__shopping_recipe__user=request.user
-        ).values(
-            'ingredient__name',
-            'ingredient__measurement_unit'
-        ).annotate(amount=Sum('amount'))
-
-        if not ingredients:
-            return Response(
-                {'errors': 'Список покупок не может быть пустым.'},
-                status=status.HTTP_204_NO_CONTENT)
-
+    @staticmethod
+    def create_txt_file(ingredients, request):
         shopping_list = (
             f'Список покупок для: {request.user.username}\n\n'
         )
@@ -220,3 +213,23 @@ class RecipeViewSet(viewsets.ModelViewSet):
             content_type='text/plain')
         file['Content-Disposition'] = f'attachment; filename={filename}'
         return file
+
+    @action(detail=False,
+            methods=['get'],
+            permission_classes=(IsAuthenticated,)
+            )
+    def download_shopping_cart(self, request):
+        if not request.user.shoppings_cart.exists():
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        ingredients = IngredientAmount.objects.filter(
+            recipe__shoppings_cart__user=request.user
+        ).values(
+            'ingredient__name',
+            'ingredient__measurement_unit'
+        ).annotate(amount=Sum('amount'))
+
+        if not ingredients:
+            return Response(
+                {'errors': 'Список покупок не может быть пустым.'},
+                status=status.HTTP_204_NO_CONTENT)
+        return self.create_txt_file(ingredients, request)

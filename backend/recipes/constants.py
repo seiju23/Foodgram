@@ -1,4 +1,5 @@
-tags_name_max_length = 15
-tags_slug_max_length = 15
-ingredient_name_max_length = 15
-ingredient_measurement_unit_max_length = 7
+MAX_LENGTH_TAG_NAME = 200
+MAX_LENGTH_TAG_SLUG = 200
+MAX_LENGTH_INGREDIENT_NAME = 200
+MAX_LENGTH_INGREDIENT_UNIT = 200
+MAX_LENGTH_RECIPE_NAME = 200
