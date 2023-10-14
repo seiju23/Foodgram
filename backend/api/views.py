@@ -157,7 +157,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 )
             except Favorite.DoesNotExist:
                 return Response(
-                    {'error': 'Этого рецепта нет в списке покупок.'},
+                    {'error': 'Этого рецепта нет в избранном.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             favorite.delete()

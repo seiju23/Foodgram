@@ -295,43 +295,38 @@ class RecipeReadSerializer(serializers.ModelSerializer):
         )
 
 
-class FavoriteSerializer(serializers.ModelSerializer):
-    """Сериализатор для избранного."""
+class FavCartMixin:
+    """Миксин для избранного и списка покупок"""
     class Meta:
+        validators = [
+            UniqueTogetherValidator(
+                queryset=None,
+                fields=('user', 'recipe'),
+                message=''
+            )
+        ]
+
+    def to_representation(self, instance):
+        request = self.context.get('request')
+        return RecipeShortSerializer(
+            instance.recipe,
+            context={'request': request}
+        ).data
+
+
+class FavoriteSerializer(FavCartMixin, serializers.ModelSerializer):
+    """Сериализатор для избранного."""
+    class Meta(FavCartMixin.Meta):
         model = Favorite
         fields = '__all__'
-        validators = [
-            UniqueTogetherValidator(
-                queryset=Favorite.objects.all(),
-                fields=('user', 'recipe'),
-                message='Рецепт уже в избранном'
-            )
-        ]
-
-    def to_representation(self, instance):
-        request = self.context.get('request')
-        return RecipeShortSerializer(
-            instance.recipe,
-            context={'request': request}
-        ).data
+        FavCartMixin.Meta.validators[0].queryset = Favorite.objects.all()
+        FavCartMixin.Meta.validators[0].message = 'Рецепт уже в избранном'
 
 
-class ShoppingCartSerializer(serializers.ModelSerializer):
+class ShoppingCartSerializer(FavCartMixin, serializers.ModelSerializer):
     """Сериализатор для списка покупок."""
-    class Meta:
+    class Meta(FavCartMixin.Meta):
         model = ShoppingCart
         fields = '__all__'
-        validators = [
-            UniqueTogetherValidator(
-                queryset=ShoppingCart.objects.all(),
-                fields=('user', 'recipe'),
-                message='Рецепт уже в списке покупок'
-            )
-        ]
-
-    def to_representation(self, instance):
-        request = self.context.get('request')
-        return RecipeShortSerializer(
-            instance.recipe,
-            context={'request': request}
-        ).data
+        FavCartMixin.Meta.validators[0].queryset = ShoppingCart.objects.all()
+        FavCartMixin.Meta.validators[0].message = 'Рецепт уже в списке покупок'
