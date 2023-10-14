@@ -84,7 +84,7 @@ class UserViewSet(views.UserViewSet):
 
     def get_permissions(self):
         if self.action == 'me':
-            self.permission_classes = [IsAuthenticated,]
+            self.permission_classes = [IsAuthenticated, ]
         return super(UserViewSet, self).get_permissions()
 
 

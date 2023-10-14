@@ -92,7 +92,7 @@ class IngredientAmount(models.Model):
         validators=[
             MinValueValidator(1, 'Количество не может быть меньше 1'),
             MaxValueValidator(100, 'Количество не может превышать 100')
-            ])
+        ])
 
     class Meta:
         verbose_name_plural = 'Количество ингредиентов'
