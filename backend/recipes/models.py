@@ -2,7 +2,7 @@ from colorfield.fields import ColorField
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 
-from . import constants
+from foodgram import constants
 from users.models import User
 
 
@@ -10,10 +10,10 @@ class Tag(models.Model):
     """Класс тегов."""
     name = models.CharField(
         'Тег', max_length=constants.MAX_LENGTH_TAG_NAME,
-        blank=False, unique=True)
+        unique=True)
     slug = models.SlugField(
         'Slug', max_length=constants.MAX_LENGTH_TAG_SLUG,
-        blank=False, unique=True)
+        unique=True)
     color = ColorField(format="hexa")
 
     class Meta:
@@ -49,8 +49,16 @@ class Recipe(models.Model):
     pub_date = models.DateTimeField('Дата публикации', auto_now_add=True)
     cooking_time = models.PositiveSmallIntegerField(
         validators=[
-            MinValueValidator(1, 'Время готовки не может быть менее 1 минуты'),
-            MaxValueValidator(300, 'Время готовки не должно превышать 5 часов')
+            MinValueValidator(
+                constants.MIN_COOKING_TIME,
+                'Время готовки не может быть менее'
+                f'{constants.MIN_COOKING_TIME} минуты'
+            ),
+            MaxValueValidator(
+                constants.MAX_COOKING_TIME,
+                'Время готовки не должно превышать'
+                f'{constants.MAX_COOKING_TIME} минут'
+            )
         ])
     ingredients = models.ManyToManyField(
         Ingredient,
@@ -90,8 +98,16 @@ class IngredientAmount(models.Model):
     )
     amount = models.PositiveSmallIntegerField(
         validators=[
-            MinValueValidator(1, 'Количество не может быть меньше 1'),
-            MaxValueValidator(100, 'Количество не может превышать 100')
+            MinValueValidator(
+                constants.MIN_AMOUNT,
+                'Количество не может быть меньше'
+                f'{constants.MIN_AMOUNT}'
+            ),
+            MaxValueValidator(
+                constants.MAX_AMOUNT,
+                'Количество не может превышать'
+                f'{constants.MAX_AMOUNT}'
+            )
         ])
 
     class Meta:

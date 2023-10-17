@@ -9,12 +9,10 @@ from djoser.serializers import UserCreateSerializer, UserSerializer
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 
-from . import constants
+from foodgram import constants
 from recipes.models import (
     Recipe, Ingredient, Tag, IngredientAmount,
     Favorite, ShoppingCart)
-from .utils import validate_tags_ingredients
-from users.constants import MAX_LENGTH_PASSWORD
 from users.models import Follow
 
 
@@ -29,13 +27,6 @@ class UserSignUpSerializer(UserCreateSerializer):
             'email', 'id', 'username', 'first_name',
             'last_name', 'password'
         )
-
-    def validate_password(self, password):
-        if len(password) > MAX_LENGTH_PASSWORD:
-            raise serializers.ValidationError(
-                f'Длина пароля не должна превышать {MAX_LENGTH_PASSWORD}'
-            )
-        return password
 
 
 class UserReadSerializer(UserSerializer):
@@ -79,8 +70,8 @@ class FollowListSerializer(UserReadSerializer):
         if recipes_limit:
             try:
                 recipes = obj.recipes.all()[:int(recipes_limit)]
-            except TypeError:
-                return 'В recipes_limit должна быть строка'
+            except ValueError:
+                pass
         return RecipeShortSerializer(
             recipes, many=True,
             context={'request': request}
@@ -190,6 +181,33 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         )
         model = Recipe
 
+    @staticmethod
+    def validate_tags_ingredients(tags, ingredients):
+        """Валидация ингредиентов."""
+        ingredients_list = []
+        tags_list = []
+        for ingredient in ingredients:
+            if ingredient.get('amount') <= 0 or ingredient.get('amount') > 100:
+                raise serializers.ValidationError(
+                    'Количество не может быть меньше 1 и больше 100.'
+                )
+            if not Ingredient.objects.filter(id=ingredient.get('id')).exists():
+                raise serializers.ValidationError(
+                    'Вы пытаетесь добавить несуществующий ингредиент.')
+            ingredients_list.append(ingredient.get('id'))
+        for tag_id in tags:
+            if not Tag.objects.filter(id=tag_id).exists():
+                raise serializers.ValidationError(
+                    'Вы пытаетесь добавить несуществующий тег.'
+                )
+            tags_list.append(tag_id)
+        if len(tags_list) != len(set(tags_list)):
+            raise serializers.ValidationError(
+                'Теги должны быть уникальны.')
+        if len(ingredients_list) != len(set(ingredients_list)):
+            raise serializers.ValidationError(
+                'Ингредиенты должны быть уникальны.')
+
     def validate(self, data):
         tags = self.initial_data.get('tags')
         ingredients = self.initial_data.get('ingredients')
@@ -200,7 +218,7 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
                     'Поля должны быть заполнены.')
         if not tags or not ingredients:
             raise serializers.ValidationError('Не переданы нужные данные.')
-        validate_tags_ingredients(tags, ingredients)
+        self.validate_tags_ingredients(tags, ingredients)
         data.update(
             {
                 'tags': tags,
@@ -295,16 +313,8 @@ class RecipeReadSerializer(serializers.ModelSerializer):
         )
 
 
-class FavCartMixin:
+class FavCartMixin(serializers.ModelSerializer):
     """Миксин для избранного и списка покупок"""
-    class Meta:
-        validators = [
-            UniqueTogetherValidator(
-                queryset=None,
-                fields=('user', 'recipe'),
-                message=''
-            )
-        ]
 
     def to_representation(self, instance):
         request = self.context.get('request')
@@ -314,19 +324,31 @@ class FavCartMixin:
         ).data
 
 
-class FavoriteSerializer(FavCartMixin, serializers.ModelSerializer):
+class FavoriteSerializer(FavCartMixin):
     """Сериализатор для избранного."""
-    class Meta(FavCartMixin.Meta):
+
+    class Meta:
         model = Favorite
         fields = '__all__'
-        FavCartMixin.Meta.validators[0].queryset = Favorite.objects.all()
-        FavCartMixin.Meta.validators[0].message = 'Рецепт уже в избранном'
+        validators = [
+            UniqueTogetherValidator(
+                queryset=Favorite.objects.all(),
+                fields=('user', 'recipe'),
+                message='Этот рецепт уже в избранном.'
+            )
+        ]
 
 
-class ShoppingCartSerializer(FavCartMixin, serializers.ModelSerializer):
+class ShoppingCartSerializer(FavCartMixin):
     """Сериализатор для списка покупок."""
-    class Meta(FavCartMixin.Meta):
+
+    class Meta:
         model = ShoppingCart
         fields = '__all__'
-        FavCartMixin.Meta.validators[0].queryset = ShoppingCart.objects.all()
-        FavCartMixin.Meta.validators[0].message = 'Рецепт уже в списке покупок'
+        validators = [
+            UniqueTogetherValidator(
+                queryset=ShoppingCart.objects.all(),
+                fields=('user', 'recipe'),
+                message='Этот рецепт уже в списке покупок.'
+            )
+        ]

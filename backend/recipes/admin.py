@@ -21,6 +21,7 @@ class RecipeIngredientInline(admin.TabularInline):
 
 
 class RecipeAdmin(admin.ModelAdmin):
+    exclude = ('is_favorited', 'is_in_shopping_cart')
     list_display = (
         'pk', 'name', 'author', 'cooking_time',
         'text', 'get_tags', 'get_ingredients', 'image')
@@ -28,7 +29,6 @@ class RecipeAdmin(admin.ModelAdmin):
         'name', 'cooking_time', 'text',
         'image', 'author'
     )
-    readonly_fields = ('is_favorited',)
     list_filter = ('name', 'author', 'tags')
     empty_value_display = '???'
     inines = [
@@ -39,14 +39,6 @@ class RecipeAdmin(admin.ModelAdmin):
     @admin.display(description='Избранное')
     def is_favorited(self, obj):
         return obj.favorite_recipes.count()
-
-    def get_form(self, request, obj=None, **kwargs):
-        form = super().get_form(request, obj, **kwargs)
-        form.base_fields[
-            'is_favorited'].widget = admin.widgets.AdminHiddenInput()
-        form.base_fields[
-            'is_in_shopping_cart'].widget = admin.widgets.AdminHiddenInput()
-        return form
 
 
 class ShoppingCartAdmin(admin.ModelAdmin):

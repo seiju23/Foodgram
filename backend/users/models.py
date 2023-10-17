@@ -2,12 +2,14 @@ from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.db import models
 
-from . import constants
+from foodgram import constants
 from api.validators import validate_username
 
 
 class User(AbstractUser):
     """Кастомный класс юзера."""
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
     email = models.EmailField(unique=True)
     username = models.CharField(
         max_length=constants.MAX_LENGTH_USERNAME,
@@ -27,8 +29,6 @@ class User(AbstractUser):
         verbose_name='Пароль',
         max_length=constants.MAX_LENGTH_PASSWORD,
     )
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
 
     class Meta:
         ordering = ['username']
