@@ -7,9 +7,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 SECRET_KEY = os.getenv('SECRET_KEY', get_random_secret_key())
 
-DEBUG = os.getenv('DEBUG', 'True')
+DEBUG = os.getenv('DEBUG', True)
 
-DB_PROD = os.getenv('DB_PROD', 'False')
+DB_PROD = os.getenv('DB_PROD', False)
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1').split(',')
 

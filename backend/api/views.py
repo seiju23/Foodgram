@@ -7,7 +7,6 @@ from djoser import views
 
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import NotFound
 from rest_framework.filters import SearchFilter
 from rest_framework.permissions import (
     AllowAny,
@@ -141,13 +140,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 request, recipe,
                 FavoriteSerializer)
         if request.method == 'DELETE':
-            try:
-                favorite = Favorite.objects.filter(
-                    user=request.user, recipe=recipe)
-            except Recipe.DoesNotExist:
-                raise NotFound(
-                    {'error': 'Рецепт не существует.'}
-                )
+            favorite = Favorite.objects.filter(
+                user=request.user, recipe=recipe)
             if not favorite.exists():
                 return Response(
                     {'error': 'Рецепта нет в избранном.'},
@@ -155,7 +149,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 )
             favorite.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     @action(detail=True, methods=['post', 'delete'],
             permission_classes=(IsAuthenticated,))
@@ -166,13 +159,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 request, recipe,
                 ShoppingCartSerializer)
         if request.method == 'DELETE':
-            try:
-                shopping_cart = ShoppingCart.objects.filter(
-                    user=request.user, recipe=recipe)
-            except Recipe.DoesNotExist:
-                raise NotFound(
-                    {'error': 'Рецепт не существует.'}
-                )
+            shopping_cart = ShoppingCart.objects.filter(
+                user=request.user, recipe=recipe)
             if not shopping_cart.exists():
                 return Response(
                     {'error': 'Рецепта нет в списке покупок.'},
@@ -180,7 +168,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 )
             shopping_cart.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     @staticmethod
     def create_txt_file(ingredients, request):
