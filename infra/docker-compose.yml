@@ -6,7 +6,7 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data/
     env_file:
-      - ./.env
+      - .env
   
   backend:
       image: seiju23/foodgram_backend:latest
@@ -17,7 +17,7 @@ services:
       depends_on:
         - db
       env_file:
-        - ./.env
+        - .env
 
   frontend:
     image: seiju23/foodgram_frontend:latest
@@ -44,4 +44,3 @@ volumes:
   pg_data:
   static_volume:
   media_volume:
-
