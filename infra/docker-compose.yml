@@ -12,8 +12,8 @@ services:
       image: seiju23/foodgram_backend:latest
       restart: always
       volumes:
-        - backend_static:/app/static
-        - backend_media:/app/media
+        - static:/app/static/
+        - media:/app/media/
       depends_on:
         - db
       env_file:
@@ -32,9 +32,9 @@ services:
       - 8888:80
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
-      - static:/usr/share/nginx/html/
-      - backend_static:/backend_static
-      - backend_media:/backend_media
+      - ../frontend/build:/usr/share/nginx/html/
+      - static:/var/html/static/
+      - media:/var/html/media/
       - ../docs/:/usr/share/nginx/html/api/docs/
     depends_on:
       - frontend
@@ -43,5 +43,4 @@ services:
 volumes:
   pg_data:
   static:
-  backend_static:
   media:
