@@ -187,10 +187,6 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         ingredients_list = []
         tags_list = []
         for ingredient in ingredients:
-            if ingredient.get('amount') <= 0 or ingredient.get('amount') > 100:
-                raise serializers.ValidationError(
-                    'Количество не может быть меньше 1 и больше 100.'
-                )
             if not Ingredient.objects.filter(id=ingredient.get('id')).exists():
                 raise serializers.ValidationError(
                     'Вы пытаетесь добавить несуществующий ингредиент.')
