@@ -19,7 +19,7 @@ from .pagination import LimitPaginator
 from .permissions import IsAuthorOrReadOnly
 from recipes.models import (
     Recipe, Ingredient, Favorite,
-    ShoppingCart, Tag, IngredientAmount)
+    ShoppingCart, Tag)
 from .serializers import (
     FavoriteSerializer, ShoppingCartSerializer,
     IngredientSerializer, TagSerializer,
@@ -170,16 +170,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_204_NO_CONTENT)
 
     @staticmethod
-    def create_txt_file(ingredients, request):
-        shopping_list = (
-            f'Список покупок для: {request.user.username}\n\n'
-        )
-        shopping_list += '\n'.join([
-            f'- {ingredient["ingredient__name"]} '
-            f'({ingredient["ingredient__measurement_unit"]})'
-            f' - {ingredient["amount"]}'
-            for ingredient in ingredients
-        ])
+    def create_txt_file(shopping_list, request):
         filename = f'{request.user.username}_shopping_list.txt'
         file = HttpResponse(
             shopping_list,
@@ -194,15 +185,17 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def download_shopping_cart(self, request):
         if not request.user.shoppings_cart.exists():
             return Response(status=status.HTTP_400_BAD_REQUEST)
-        ingredients = IngredientAmount.objects.filter(
+        ingredients = Ingredient.objects.filter(
             recipe__shoppings_cart__user=request.user
-        ).values(
-            'ingredient__name',
-            'ingredient__measurement_unit'
-        ).annotate(amount=Sum('amount'))
+        ).annotate(total_amount=Sum('ingredientamount__amount'))
+        shopping_list_format = '{name} ({measurement_unit}) — {total_amount}\n'
+        shopping_list = (
+            shopping_list_format.format(**ingredient.__dict__)
+            for ingredient in ingredients
+        )
 
         if not ingredients:
             return Response(
                 {'errors': 'Список покупок не может быть пустым.'},
                 status=status.HTTP_204_NO_CONTENT)
-        return self.create_txt_file(ingredients, request)
+        return self.create_txt_file(shopping_list, request)
