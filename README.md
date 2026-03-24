@@ -46,4 +46,4 @@
     ```
 
 ### Об авторе
-Игорь Равлис (github:[@seiju23](github.com/seiju23), tg:[@seiju23](t.me/seiju23))
+Игорь Равлис (github:[@seiju23](github.com/seiju23), tg:[@aisakakun](t.me/aisakakun))
